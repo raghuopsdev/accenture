@@ -1,0 +1,24 @@
+Goto workstation
+
+ chef generate cookbook firstcb
+
+ vi firstcb/recipes/default.rb
+
+ file '/tmp/welcome.txt' do
+  content 'Welcome to Chef'
+ end
+
+ chef-client -z --runlist recipe["firstcb"]
+
+ pwd
+ /root/chef-repo/cookbooks
+
+ knife upload firstcb
+
+Goto Server
+
+ Goto Nodes -> Run List -> Drag & drop
+
+Goto Node
+
+ chef-client
