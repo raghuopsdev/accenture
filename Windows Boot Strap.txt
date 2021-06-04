@@ -1,0 +1,48 @@
+IN WINDOWS 2012 R2 MACHINE
+==========================
+
+i) Open Powershell
+ii) Firewall.cpl 
+iii) Disable Domain, Public & Private Firewall including Advanced & Default Firewall Option.
+	//Only to open winrm firewall port use the below command.
+	netsh advfirewall firewall add rule name="WinRM 5985" protocol=TCP dir=in localport=5985 action=allow 
+
+iv) Restart winrm
+	net stop winrm
+	net start winrm
+v) services.msc 
+	To check if winrm up and running or not
+
+IN WORKSTATION I.E. LINUX
+=========================
+
+i) Install ChefDK
+ii) Download Chef Server Starter Kit
+iii) Upload to Workstation through WinScp
+iv) Unzip the starter kit
+v) download sample cookbook
+	eg:- knife cookbook site download <sample>
+vi) Upload the cookbook to Server
+	eg:- knife upload <cookbookname>
+viii)  knife bootstrap -o winrm 172.31.40.87 -U Administrator -P ';NAn9b(QT!PsdJWxqPgeXD6WHHGT76!v' --node-name WIN2019
+
+Some Useful Commands
+============================
+
+net stop winrm
+net start winrm
+
+Get-Service WinRM
+Get-Service WinRM | Start-Service
+
+netsh advfirewall firewall add rule name="WinRM 5985" protocol=TCP dir=in localport=5985 action=allow
+
+knife bootstrap windows winrm 54.87.250.136 --winrm-user Administrator --winrm-password 'iL8D3rK!%$j' --node-name WIN2012 --run-list 'recipe[iis]'
+
+inetmgr //Command to Check whether IIS up and running.
+
+// To check the port is opened or not
+telnet 34.229.38.53 5985
+
+//To check host alive or not
+ping <IP> -t
