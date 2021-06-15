@@ -1,0 +1,358 @@
+CRON
+-----
+crontab -e
+crontab -l
+-------
+package : cronie
+service : crond
+file: /var/spool/cron/<username>
+There are six fields.
+Min,HR,DOM,MONTH,DOW,Command
+
+package 'cronie' do
+  action :install
+end
+service 'crond' do
+  action [:start, :enable]
+end
+file '/var/spool/cron/root' do
+  owner 'root'
+  group 'root'
+  mode 0644
+  content '*/10 * * * * /usr/bin/chef-client'
+  action :create
+end
+
+knife node show WebServer
+knife node edit WebServer (Vim config in knife.rb)
+	.....
+	"recipe[cron_test]"
+
+
+
+Attributes
+-----------
+2 types
+i) User defined (user will define it)
+ii)system defined (chef will define it)
+
+node -> ohai | grep ipaddress
+	ohai | grep hostname
+	ohai | grep platform
+
+Where you can define the attributes ?
+i) in node
+ii) in cookbook (attribute,recipe)
+iii) in role
+iv) in environment
+
+Types of attributes ?
+i) default
+ii) force_default
+iii) normal
+iv) override
+v) force_override
+vi) automatic
+
+eg: package_name = "httpd"
+    service_name = "httpd"
+
+    package package_name do
+	action :install
+    end
+
+attributes in cookbook:
+-----------------------
+default["package_name"] = "cronie"  <--- in attributes
+node["package_name"]  < --- in recipe
+
+in attributes->default.rb
+-------------------------
+case node["platform"]
+  when "centos","rhel"
+    default["package_name"] = 'httpd'
+    default["service_name"] = 'httpd'
+    default["document_root"] = '/var/www/html'
+  when "ubuntu","debian"
+    default["package_name"] = 'apache2'
+    default["service_name"] = 'apache2'
+    default["document_root"] = '/var/www'
+end
+
+in recipes->default.rb
+----------------------
+package node["package_name"] do
+  action :install
+end
+service node["service_name"] do
+  action [:start, :enable]
+end
+
+file "#{node["document_root"]}/index.html" do
+  owner 'root'
+  group 'root'
+  mode 0644
+  content '<h1>welcome all</h1>'
+  action :create
+end
+
+----
+cookstyle <cb>
+knife cookbook upload attribute_test
+knife node show <nodename>
+knife node edit WebServer
+------
+
+
+Templates
+---------
+html.erb
+
+<h1>Welcome to Accenture</h1>
+<h2>my hostname is <%=node['hostname']%> </h2>
+<h3>my platform is <%=node['platform']%> </h3>
+<h4>my total mem is <%=node['memory']['total']%> </h4>
+
+call this in recipe
+
+Task -> use attribute & template
+
+
+USER
+------
+
+Target: Create a user in node.
+---------
+username, password, groupname, home, shell
+
+password structure ?
+it generally in 3 layers
+   $encrypt_type$salt_name$actual_pass
+	$encrypt_type = 6 types of sha1
+	  md5=1
+	  crc=2
+	sha256=5
+	sha512=6...
+	$salt_name=$kgh556 (random unique number system generated)
+	$actual_pass=$8md5nvef985
+
+In Node
+cat /etc/shadow | grep <uname>
+user:$encrypt_type$salt_name$actual_pass
+
+Generate encrypted password
+ - openssl passwd -<type> -salt <salt name> <actual_passwd>
+
+eg: openssl passwd -1 -salt baltman redhat
+Copy the output in PWD
+
+$1$baltman$ijshtxa2xUXjmwUNrvcKm.
+
+recipe/default.rb
+
+group 'user01' do
+  action :create
+end
+
+user 'user01' do
+  password 'copy from above openssl command'
+  group 'user01'
+  shell '/bin/bash'
+  home '/home/user01'
+  manage_home true
+  action :create
+end
+
+Execute CB & Test IT
+su user01
+pwd:
+echo $SHELL
+echo $HOME
+cat /etc/passwd | grep user01
+cat /etc/shadow | grep user01
+cat /etc/group | group user01
+
+Now go to /var/cache/chef/cookbook
+Go to user CB -> password will be there
+To avoid it we use DataBags
+
+
+DATA BAGS
+=========
+ - db are global variables
+ - stores data in JSON format
+ - it will always stored on the server. 
+ - it stored in index format for faster searching. (keypair)
+
+Handle
+======
+ create empty databag
+ write a json format file and put some data
+ import the data(json) from the file to databag.
+ see the list of databag.
+ modify the recipe to collect data from db.
+  - knife data bag list
+  - knife data bag create <name>
+  -  vi user02_password.json
+	{
+	  "id" : "user02",
+ 	  "password" : "3layerpwd"
+	}
+  - knife data bag from file <databagname> <file.json>
+
+  eg: - knife data bag from file user02 user02_password.json
+        Updated data_bag_item[user02::user02]
+
+
+recipe/default.rb
+---------------
+userpass=data_bag_item('user02_passwd','user02')
+group 'user02' do
+  action :create
+end
+user 'user02' do
+  password userpass['password']
+  group 'user02'
+  shell '/bin/bash'
+  home '/home/user02'
+  manage_home true
+  action :create
+end
+
+STEPS 
+-------
+knife data bag list
+knife data bag create user02_pass
+knife data bag list
+vi user02_password.json
+	{
+	  "id" : "user02",
+ 	  "password" : "<3layerpwd>"
+	}
+knife data bag from file user02_pass user02_password.json
+knife data bag show user02_pass //only id will show
+
+user_cookbook/metadata.rb
+...
+...
+version '0.2.0'
+....
+
+recipes/default.rb
+----------------
+
+userpass=data_bag_item('user02_passwd','user02')
+group 'user02' do
+  action :create
+end
+user 'user02' do
+  password userpass['password']
+  group 'user02'
+  shell '/bin/bash'
+  home '/home/user02'
+  manage_home true
+  action :create
+end
+
+
+v2 of cb uploaded & test
+check in server -> policy
+
+Validate the user
+--------------------------
+
+
+Roles
+-------
+knife role create webserver 
+// always set editor knife[:editor] = "/usr/bin/vim"
+OR
+export "EDITOR=vim"
+
+knife role edit webserver
+....
+....
+"run_list": [
+	  "recipe[webserver]",
+	  "recipe[appserver]",
+
+knife role show webserver
+knife node show node
+
+knife node edit node
+//replace cb entries with role
+ "role[webserver]"
+
+knife node show node
+
+
+KITCHEN
+============
+
+HOW to Use TestKitchen with Docker
+
+Pre-requisite
+--------------
+chefdk
+docker
+
+STEPS
+======
+chef generate cookbook demo
+
+vi demo/recipes/default.rb
+
+file '/tmp/test.txt' do
+  content 'This is managed by chef'
+  action :create
+end
+
+INSTALL GEM KITCHEN
+chef gem install kitchen-docker
+
+vi demo/kitchen.yml
+
+---
+driver:
+ name: docker
+
+
+//Add this after platforms:
+
+platforms:
+  - name: ubuntu
+  - name: centos
+    driver_config: //picks images
+       image: 'centos:7'
+       platform: centos
+
+transport:
+ name: docker
+
+suites:
+ - name: default
+   run_list:
+     - recipe[demo::default]
+   verifier:
+     inspec_tests:
+       - test/integration/default
+     attributes:
+
+STEPS
+========
+kitchen list //notice instance are not created
+kitchen create //download the image & communication channel.
+kitchen list //notice instances are created
+kitchen converge //executes cook book
+kitchen list //notice converged
+kitchen destroy
+
+Note: to generate kitchen yml friendly with docker driver
+-----------------------------------------------------------
+kitchen init --generate-gemfile --driver=kitchen-docker
+//It may compare with existing one and ask confirmation to overwrite it, you can say Yes & same with chefignore
+
+//This will also install gem kitchen-docker-2.3.0
+
+//use_sudo: false
+//provisioner: update to chef_zero
